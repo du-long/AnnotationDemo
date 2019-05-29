@@ -1,12 +1,14 @@
-# 自定义注解使用
+# 自定义注解学习
 参考文献：[https://www.cnblogs.com/foxy/p/7879460.html](https://www.cnblogs.com/foxy/p/7879460.html)
 
 ## 什么是注解
 Annotation（注解）就是Java提供了一种源程序中的元素关联任何信息或者任何元数据（metadata）的途径和方法。
 
-Annotation是被动的元数据，永远不会有主动行为
+Annotation 是被动的元数据，永远不会有主动行为
 
-## 自定义注解
+Annotation 一般会配合反射一起使用
+
+## 自定义注解示例
 ``` 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD})
@@ -45,3 +47,163 @@ public @interface Bind {
 使用了该注解的可以在javadoc中找到
 ### @Interited 
 使用了该注解的表示注解里的内容可以被子类继承，比如父类中某个成员使用了上述@From(value)，From中的value能给子类使用到。
+
+## 注解的使用
+   以下内容会用到少许反射的知识，如果不了解反射，建议先去学习反射的基本使用。
+### 属性注解的使用（使用注解代替 findViewById() 方法）
+
+#### 声明注解
+```
+@Retention(RetentionPolicy.RUNTIME) // 指定注解的有效范围
+@Target(ElementType.FIELD) // 指定注解修饰成员变量
+public @interface BindView { // 声明注解
+    public int value(); // 注解的值
+}
+```
+#### 使注解生效
+
+```
+private static void find(Activity activity) {
+        Class<? extends Activity> aClass = activity.getClass();// 获取对应的 Class
+        Field[] fields = aClass.getDeclaredFields(); // 获取所有成员变量
+        for (Field field : fields) {
+            if (field.isAnnotationPresent(BindView.class)) { // 如果是被 BindView 注解修饰
+                int viewId = field.getAnnotation(BindView.class).value(); // 获取到注解修饰的View的ID
+                View view = activity.findViewById(viewId); // 查找View
+                field.setAccessible(true); // 暴力访问
+                try {
+                    field.set(activity, view); // 将View设置给对应的变量
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+```
+
+### 方法注解的使用（使用注解代替 setOnClickListener() 方法）
+
+#### 声明注解
+```
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.METHOD)
+public @interface OnClick {
+    public int[] value();
+}
+```
+#### 使注解生效
+
+```
+private static void onClick(final Activity activity) {
+        Class<? extends Activity> aClass = activity.getClass();
+        Method[] methods = aClass.getDeclaredMethods();
+        for (final Method method : methods) {
+            if (method.isAnnotationPresent(OnClick.class)) {
+                method.setAccessible(true);
+                OnClick annotation = method.getAnnotation(OnClick.class);
+                int[] value = annotation.value();
+                for (int i : value) {
+                    final View view = activity.findViewById(i);
+                    view.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            try {
+                                method.invoke(activity, view);//按钮被点击后执行注解修饰的方法
+                            } catch (IllegalAccessException e) {
+                                e.printStackTrace();
+                            } catch (InvocationTargetException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    }
+```
+### 在 Activity 中使用
+```
+public class MainActivity extends AppCompatActivity {
+
+    @BindView(R.id.tv_title)
+    private TextView tvTitle;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        BinderView.bind(this);
+    }
+
+    @OnClick({R.id.btn_title, R.id.btn_test1, R.id.btn_test2})
+    private void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.btn_title:
+                tvTitle.setText("设置标题");
+                break;
+            case R.id.btn_test1:
+                Toast.makeText(this, "点击测试一", Toast.LENGTH_SHORT).show();
+                break;
+            case R.id.btn_test2:
+                Toast.makeText(this, "点击测试二", Toast.LENGTH_SHORT).show();
+                break;
+            default:
+
+        }
+    }
+}
+```
+### BinderView 类
+```
+public class BinderView {
+    public static void bind(final Activity activity) {
+        find(activity);
+        onClick(activity);
+    }
+
+    private static void find(Activity activity) {
+        Class<? extends Activity> aClass = activity.getClass();// 获取对应的 Class
+        Field[] fields = aClass.getDeclaredFields(); // 获取所有成员变量
+        for (Field field : fields) {
+            if (field.isAnnotationPresent(BindView.class)) { // 如果是被 BindView 注解修饰
+                int viewId = field.getAnnotation(BindView.class).value(); // 获取到注解修饰的View的ID
+                View view = activity.findViewById(viewId); // 查找View
+                field.setAccessible(true); // 暴力访问
+                try {
+                    field.set(activity, view); // 将View设置给对应的变量
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private static void onClick(final Activity activity) {
+        Class<? extends Activity> aClass = activity.getClass();
+        Method[] methods = aClass.getDeclaredMethods();
+        for (final Method method : methods) {
+            if (method.isAnnotationPresent(OnClick.class)) {
+                method.setAccessible(true);
+                OnClick annotation = method.getAnnotation(OnClick.class);
+                int[] value = annotation.value();
+                for (int i : value) {
+                    final View view = activity.findViewById(i);
+                    view.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            try {
+                                method.invoke(activity, view);
+                            } catch (IllegalAccessException e) {
+                                e.printStackTrace();
+                            } catch (InvocationTargetException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    }
+}
+
+```
