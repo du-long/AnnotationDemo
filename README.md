@@ -156,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
 ### BinderView 类
 ```
 public class BinderView {
-    public static void bind(final Activity activity) {
+    public static void bind(Activity activity) {
         find(activity);
         onClick(activity);
     }
