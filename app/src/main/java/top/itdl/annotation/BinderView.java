@@ -8,7 +8,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 public class BinderView {
-    public static void bind(final Activity activity) {
+    public static void bind(Activity activity) {
         find(activity);
         onClick(activity);
     }
